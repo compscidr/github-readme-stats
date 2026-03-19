@@ -89,30 +89,31 @@ async function fetchAllRepos() {
  */
 async function fetchLinesChanged(repo) {
   const url = `${REST_BASE}/repos/${repo}/stats/contributors`;
-  const maxRetries = 6;
-  const initialDelayMs = 1000;
+  const maxRetries = 60;
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const res = await fetch(url, { headers: restHeaders });
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    let res;
+    try {
+      res = await fetch(url, { headers: restHeaders });
+    } catch {
+      return 0;
+    }
 
     if (res.status === 202) {
-      if (attempt < maxRetries) {
-        const delay = initialDelayMs * Math.pow(2, attempt);
-        await sleep(delay);
-        continue;
-      }
-      console.warn(
-        `Contributor stats for ${repo} still computing after ${maxRetries + 1} attempts; treating linesChanged as 0.`,
-      );
-      return 0;
+      await sleep(2000);
+      continue;
     }
 
     if (!res.ok) {
-      // Non-success status (e.g. 404 for empty repos) — skip silently.
       return 0;
     }
 
-    const contributors = await res.json();
+    let contributors;
+    try {
+      contributors = await res.json();
+    } catch {
+      return 0;
+    }
 
     if (!Array.isArray(contributors)) {
       return 0;
@@ -137,6 +138,7 @@ async function fetchLinesChanged(repo) {
     return additions + deletions;
   }
 
+  console.warn(`Too many 202s for ${repo}; lines changed will be incomplete.`);
   return 0;
 }
 
@@ -148,19 +150,30 @@ async function fetchLinesChanged(repo) {
  */
 async function fetchRepoViews(repo) {
   const url = `${REST_BASE}/repos/${repo}/traffic/views`;
-  const res = await fetch(url, { headers: restHeaders });
+  let res;
+  try {
+    res = await fetch(url, { headers: restHeaders });
+  } catch {
+    console.warn(`Failed to fetch views for ${repo}; skipping.`);
+    return 0;
+  }
 
   if (res.status === 403) {
-    // No push access — skip silently.
     return 0;
   }
 
   if (!res.ok) {
+    console.warn(`Views for ${repo} returned ${res.status}; skipping.`);
     return 0;
   }
 
-  const json = await res.json();
-  return json.count ?? 0;
+  try {
+    const json = await res.json();
+    return json.count ?? 0;
+  } catch {
+    console.warn(`Failed to parse views response for ${repo}; skipping.`);
+    return 0;
+  }
 }
 
 /**

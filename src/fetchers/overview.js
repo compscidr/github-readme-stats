@@ -28,6 +28,18 @@ const GRAPHQL_OVERVIEW_QUERY = `
       repositoriesContributedTo(first: 1, contributionTypes: [COMMIT, ISSUE, PULL_REQUEST, REPOSITORY]) {
         totalCount
       }
+      contributionsCollection {
+        contributionYears
+      }
+    }
+  }
+`;
+
+// GraphQL query to fetch contributions by year.
+const GRAPHQL_CONTRIBS_QUERY = `
+  query contribs($login: String!) {
+    user(login: $login) {
+      YEARS_PLACEHOLDER
     }
   }
 `;
@@ -107,54 +119,64 @@ const overviewStatsFetcher = async (username) => {
 };
 
 /**
- * Fetch total commits using the REST API.
+ * Fetch contributions by year using GraphQL.
  *
  * @param {object} variables Fetcher variables.
  * @param {string} token GitHub token.
  * @returns {Promise<import('axios').AxiosResponse>} Axios response.
- *
- * @see https://developer.github.com/v3/search/#search-commits
  */
-const fetchTotalCommits = (variables, token) => {
-  return axios({
-    method: "get",
-    url: `https://api.github.com/search/commits?q=author:${variables.login}`,
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/vnd.github.cloak-preview",
-      Authorization: `token ${token}`,
+const contribsFetcher = (variables, token) => {
+  const yearFragments = variables.years
+    .map(
+      (year) => `
+      year${year}: contributionsCollection(
+        from: "${year}-01-01T00:00:00Z",
+        to: "${parseInt(year, 10) + 1}-01-01T00:00:00Z"
+      ) {
+        contributionCalendar {
+          totalContributions
+        }
+      }`,
+    )
+    .join("\n");
+
+  const query = GRAPHQL_CONTRIBS_QUERY.replace(
+    "YEARS_PLACEHOLDER",
+    yearFragments,
+  );
+
+  return request(
+    {
+      query,
+      variables: { login: variables.login },
     },
-  });
+    {
+      Authorization: `bearer ${token}`,
+    },
+  );
 };
 
 /**
- * Fetch all-time commits for a given username.
+ * Fetch all-time contributions for a given username.
  *
  * @param {string} username GitHub username.
- * @returns {Promise<number>} Total commits.
+ * @param {number[]} years Contribution years.
+ * @returns {Promise<number>} Total contributions.
  */
-const totalCommitsFetcher = async (username) => {
-  if (!githubUsernameRegex.test(username)) {
-    logger.log("Invalid username provided.");
-    throw new Error("Invalid username provided.");
+const totalContributionsFetcher = async (username, years) => {
+  const res = await retryer(contribsFetcher, { login: username, years });
+
+  if (res.data.errors) {
+    logger.error(res.data.errors);
+    return 0;
   }
 
-  let res;
-  try {
-    res = await retryer(fetchTotalCommits, { login: username });
-  } catch (err) {
-    logger.log(err);
-    throw new Error(err);
+  const user = res.data.data.user;
+  let total = 0;
+  for (const key of Object.keys(user)) {
+    total += user[key]?.contributionCalendar?.totalContributions || 0;
   }
-
-  const totalCount = res.data.total_count;
-  if (!totalCount || isNaN(totalCount)) {
-    throw new CustomError(
-      "Could not fetch total commits.",
-      CustomError.GITHUB_REST_API_ERROR,
-    );
-  }
-  return totalCount;
+  return total;
 };
 
 /**
@@ -220,10 +242,9 @@ const fetchOverview = async (username) => {
   };
 
   // Fetch GraphQL stats and gist stats in parallel.
-  const [graphqlRes, gistStats, totalCommits] = await Promise.all([
+  const [graphqlRes, gistStats] = await Promise.all([
     overviewStatsFetcher(username),
     fetchGistStats(username),
-    totalCommitsFetcher(username),
   ]);
 
   // Catch GraphQL errors.
@@ -250,8 +271,11 @@ const fetchOverview = async (username) => {
   const user = graphqlRes.data.data.user;
 
   overview.name = user.name || user.login;
-  overview.totalCommits = totalCommits;
   overview.contributedTo = user.repositoriesContributedTo.totalCount;
+
+  // Fetch all-time contributions using contribution years from the first query.
+  const years = user.contributionsCollection.contributionYears;
+  overview.totalCommits = await totalContributionsFetcher(username, years);
 
   // Sum stars and forks across all repos.
   overview.totalStars = user.repositories.nodes.reduce(

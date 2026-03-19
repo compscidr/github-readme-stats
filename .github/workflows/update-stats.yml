@@ -4,10 +4,16 @@ on:
   schedule:
     - cron: "0 5 * * *" # Daily at 5 AM UTC
   workflow_dispatch: # Allow manual trigger
+  push:
+    branches: [master]
+    paths:
+      - "scripts/update-stats.js"
+      - ".github/workflows/update-stats.yml"
 
 jobs:
   update-stats:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
