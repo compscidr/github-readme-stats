@@ -87,17 +87,21 @@ async function fetchAllRepos() {
  */
 async function fetchLinesChanged(repo) {
   const url = `${REST_BASE}/repos/${repo}/stats/contributors`;
-  const maxRetries = 3;
+  const maxRetries = 6;
+  const initialDelayMs = 1000;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const res = await fetch(url, { headers: restHeaders });
 
     if (res.status === 202) {
       if (attempt < maxRetries) {
-        await sleep(2000);
+        const delay = initialDelayMs * Math.pow(2, attempt);
+        await sleep(delay);
         continue;
       }
-      // Exhausted retries while still computing.
+      console.warn(
+        `Contributor stats for ${repo} still computing after ${maxRetries + 1} attempts; treating linesChanged as 0.`,
+      );
       return 0;
     }
 

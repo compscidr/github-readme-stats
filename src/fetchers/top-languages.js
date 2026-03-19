@@ -61,7 +61,8 @@ const fetcher = (variables, token) => {
  * @param {string[]} exclude_repo List of repositories to exclude.
  * @param {number} size_weight Weightage to be given to size.
  * @param {number} count_weight Weightage to be given to count.
- * @returns {Promise<TopLangData>} Top languages data.
+ * @param {boolean} debug Whether to return debug info.
+ * @returns {Promise<TopLangData | { topLangs: TopLangData, debug: { totalRepos: number, reposAfterFilter: number, repoLanguages: Array } }>} Top languages data, or debug wrapper.
  */
 const fetchTopLanguages = async (
   username,

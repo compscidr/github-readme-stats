@@ -119,7 +119,7 @@ export default async (req, res) => {
   }
 
   try {
-    if (debug) {
+    if (parseBoolean(debug)) {
       res.setHeader("Content-Type", "application/json");
       const result = await fetchTopLanguages(
         username,

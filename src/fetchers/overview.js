@@ -172,12 +172,10 @@ const fetchGistStats = async (username) => {
   try {
     const res = await axios({
       method: "get",
-      url: `https://gist.githubusercontent.com/${username}/${gistId}/raw`,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      url: `https://gist.githubusercontent.com/${username}/${gistId}/raw/github-stats.json`,
     });
-    const data = res.data;
+    const data =
+      typeof res.data === "string" ? JSON.parse(res.data) : res.data;
     return {
       linesChanged: data.linesChanged || 0,
       repoViews: data.repoViews || 0,
