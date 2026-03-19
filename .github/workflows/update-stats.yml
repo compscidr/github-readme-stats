@@ -1,0 +1,21 @@
+name: Update GitHub Stats Cache
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # Daily at 5 AM UTC
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Update cached stats
+        run: node scripts/update-stats.js
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GIST_ID: ${{ vars.GIST_ID }}
+          USERNAME: ${{ vars.USERNAME }}

@@ -61,13 +61,15 @@ const fetcher = (variables, token) => {
  * @param {string[]} exclude_repo List of repositories to exclude.
  * @param {number} size_weight Weightage to be given to size.
  * @param {number} count_weight Weightage to be given to count.
- * @returns {Promise<TopLangData>} Top languages data.
+ * @param {boolean} debug Whether to return debug info.
+ * @returns {Promise<TopLangData | { topLangs: TopLangData, debug: { totalRepos: number, reposAfterFilter: number, repoLanguages: Array } }>} Top languages data, or debug wrapper.
  */
 const fetchTopLanguages = async (
   username,
   exclude_repo = [],
   size_weight = 1,
   count_weight = 0,
+  debug = false,
 ) => {
   if (!username) {
     throw new MissingParamError(["username"]);
@@ -104,6 +106,8 @@ const fetchTopLanguages = async (
     hasNextPage = res.data.data.user.repositories.pageInfo.hasNextPage;
     endCursor = res.data.data.user.repositories.pageInfo.endCursor;
   }
+  const totalRepos = repoNodes.length;
+
   /** @type {Record<string, boolean>} */
   let repoToHide = {};
   const allExcludedRepos = [...exclude_repo, ...excludeRepositories];
@@ -120,6 +124,17 @@ const fetchTopLanguages = async (
   repoNodes = repoNodes
     .sort((a, b) => b.size - a.size)
     .filter((name) => !repoToHide[name.name]);
+
+  const reposAfterFilter = repoNodes.length;
+  const repoLanguages = debug
+    ? repoNodes.map((node) => ({
+        name: node.name,
+        languages: node.languages.edges.map((e) => ({
+          name: e.node.name,
+          size: e.size,
+        })),
+      }))
+    : null;
 
   let repoCount = 0;
 
@@ -166,6 +181,13 @@ const fetchTopLanguages = async (
       result[key] = repoNodes[key];
       return result;
     }, {});
+
+  if (debug) {
+    return {
+      topLangs,
+      debug: { totalRepos, reposAfterFilter, repoLanguages },
+    };
+  }
 
   return topLangs;
 };
