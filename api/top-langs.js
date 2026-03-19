@@ -42,6 +42,7 @@ export default async (req, res) => {
     disable_animations,
     hide_progress,
     stats_format,
+    debug,
   } = req.query;
   res.setHeader("Content-Type", "image/svg+xml");
 
@@ -118,6 +119,18 @@ export default async (req, res) => {
   }
 
   try {
+    if (debug) {
+      res.setHeader("Content-Type", "application/json");
+      const result = await fetchTopLanguages(
+        username,
+        parseArray(exclude_repo),
+        size_weight,
+        count_weight,
+        true,
+      );
+      return res.send(JSON.stringify(result, null, 2));
+    }
+
     const topLangs = await fetchTopLanguages(
       username,
       parseArray(exclude_repo),

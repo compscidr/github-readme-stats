@@ -68,6 +68,7 @@ const fetchTopLanguages = async (
   exclude_repo = [],
   size_weight = 1,
   count_weight = 0,
+  debug = false,
 ) => {
   if (!username) {
     throw new MissingParamError(["username"]);
@@ -104,6 +105,8 @@ const fetchTopLanguages = async (
     hasNextPage = res.data.data.user.repositories.pageInfo.hasNextPage;
     endCursor = res.data.data.user.repositories.pageInfo.endCursor;
   }
+  const totalRepos = repoNodes.length;
+
   /** @type {Record<string, boolean>} */
   let repoToHide = {};
   const allExcludedRepos = [...exclude_repo, ...excludeRepositories];
@@ -120,6 +123,17 @@ const fetchTopLanguages = async (
   repoNodes = repoNodes
     .sort((a, b) => b.size - a.size)
     .filter((name) => !repoToHide[name.name]);
+
+  const reposAfterFilter = repoNodes.length;
+  const repoLanguages = debug
+    ? repoNodes.map((node) => ({
+        name: node.name,
+        languages: node.languages.edges.map((e) => ({
+          name: e.node.name,
+          size: e.size,
+        })),
+      }))
+    : null;
 
   let repoCount = 0;
 
@@ -166,6 +180,13 @@ const fetchTopLanguages = async (
       result[key] = repoNodes[key];
       return result;
     }, {});
+
+  if (debug) {
+    return {
+      topLangs,
+      debug: { totalRepos, reposAfterFilter, repoLanguages },
+    };
+  }
 
   return topLangs;
 };
