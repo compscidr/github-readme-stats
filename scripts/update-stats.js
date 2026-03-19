@@ -58,7 +58,9 @@ async function fetchAllRepos() {
     });
 
     if (!res.ok) {
-      throw new Error(`GraphQL request failed: ${res.status} ${res.statusText}`);
+      throw new Error(
+        `GraphQL request failed: ${res.status} ${res.statusText}`,
+      );
     }
 
     const json = await res.json();
@@ -117,7 +119,8 @@ async function fetchLinesChanged(repo) {
     }
 
     const userStats = contributors.find(
-      (c) => c.author && c.author.login.toLowerCase() === USERNAME.toLowerCase(),
+      (c) =>
+        c.author && c.author.login.toLowerCase() === USERNAME.toLowerCase(),
     );
 
     if (!userStats) {
@@ -162,8 +165,8 @@ async function fetchRepoViews(repo) {
 
 /**
  * Update the target gist with computed stats.
- * @param {number} linesChanged
- * @param {number} repoViews
+ * @param {number} linesChanged Total lines changed.
+ * @param {number} repoViews Total repository views.
  */
 async function updateGist(linesChanged, repoViews) {
   const url = `${REST_BASE}/gists/${GIST_ID}`;
@@ -191,6 +194,10 @@ async function updateGist(linesChanged, repoViews) {
   }
 }
 
+/**
+ * Main entry point. Fetches all repos, computes stats, and updates the gist.
+ * @returns {Promise<void>}
+ */
 async function main() {
   console.log(`Fetching repos for ${USERNAME}...`);
   const repos = await fetchAllRepos();
