@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "0 5 * * *" # Daily at 5 AM UTC
   workflow_dispatch: # Allow manual trigger
+  push:
+    branches: [master]
+    paths:
+      - "scripts/update-stats.js"
+      - ".github/workflows/update-stats.yml"
 
 jobs:
   update-stats:

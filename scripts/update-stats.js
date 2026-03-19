@@ -112,7 +112,12 @@ async function fetchLinesChanged(repo) {
       return 0;
     }
 
-    const contributors = await res.json();
+    let contributors;
+    try {
+      contributors = await res.json();
+    } catch {
+      return 0;
+    }
 
     if (!Array.isArray(contributors)) {
       return 0;
