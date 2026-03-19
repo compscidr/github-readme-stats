@@ -11,22 +11,27 @@ import { request } from "../common/http.js";
 
 dotenv.config();
 
-// GraphQL query for overview stats.
+// GraphQL query for overview stats (first page includes user info).
 const GRAPHQL_OVERVIEW_QUERY = `
-  query userInfo($login: String!, $after: String) {
+  query userInfo($login: String!, $ownedAfter: String, $contribAfter: String) {
     user(login: $login) {
       name
       login
-      repositories(first: 100, ownerAffiliations: [OWNER, ORGANIZATION_MEMBER], isFork: false, after: $after) {
-        totalCount
+      repositories(first: 100, ownerAffiliations: [OWNER, ORGANIZATION_MEMBER], isFork: false, after: $ownedAfter) {
         nodes {
+          nameWithOwner
           stargazers { totalCount }
           forkCount
         }
         pageInfo { hasNextPage endCursor }
       }
-      repositoriesContributedTo(first: 1, contributionTypes: [COMMIT, ISSUE, PULL_REQUEST, REPOSITORY]) {
-        totalCount
+      repositoriesContributedTo(first: 100, includeUserRepositories: false, contributionTypes: [COMMIT, ISSUE, PULL_REQUEST, REPOSITORY], after: $contribAfter) {
+        nodes {
+          nameWithOwner
+          stargazers { totalCount }
+          forkCount
+        }
+        pageInfo { hasNextPage endCursor }
       }
       contributionsCollection {
         contributionYears
@@ -44,36 +49,17 @@ const GRAPHQL_CONTRIBS_QUERY = `
   }
 `;
 
-// Pagination query (repos only).
-const GRAPHQL_REPOS_ONLY_QUERY = `
-  query userInfo($login: String!, $after: String) {
-    user(login: $login) {
-      repositories(first: 100, ownerAffiliations: [OWNER, ORGANIZATION_MEMBER], isFork: false, after: $after) {
-        totalCount
-        nodes {
-          stargazers { totalCount }
-          forkCount
-        }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-  }
-`;
-
 /**
  * GraphQL fetcher for overview stats.
  *
- * @param {object & { after: string | null }} variables Fetcher variables.
+ * @param {object} variables Fetcher variables.
  * @param {string} token GitHub token.
  * @returns {Promise<import('axios').AxiosResponse>} Axios response.
  */
 const fetcher = (variables, token) => {
-  const query = variables.after
-    ? GRAPHQL_REPOS_ONLY_QUERY
-    : GRAPHQL_OVERVIEW_QUERY;
   return request(
     {
-      query,
+      query: GRAPHQL_OVERVIEW_QUERY,
       variables,
     },
     {
@@ -83,39 +69,61 @@ const fetcher = (variables, token) => {
 };
 
 /**
- * Fetch overview stats with pagination support.
+ * Fetch all repos (owned + contributed to) with pagination.
  *
  * @param {string} username GitHub username.
- * @returns {Promise<import('axios').AxiosResponse>} Axios response.
+ * @returns {Promise<{ user: object, repos: Map<string, object> }>} User info and deduplicated repos.
  */
 const overviewStatsFetcher = async (username) => {
-  let stats;
-  let hasNextPage = true;
-  let endCursor = null;
-  while (hasNextPage) {
+  const repos = new Map();
+  let userInfo = null;
+  let ownedCursor = null;
+  let contribCursor = null;
+  let hasOwnedNext = true;
+  let hasContribNext = true;
+
+  while (hasOwnedNext || hasContribNext) {
     const variables = {
       login: username,
-      first: 100,
-      after: endCursor,
+      ownedAfter: hasOwnedNext ? ownedCursor : null,
+      contribAfter: hasContribNext ? contribCursor : null,
     };
-    let res = await retryer(fetcher, variables);
+    const res = await retryer(fetcher, variables);
     if (res.data.errors) {
-      return res;
+      return { errors: res.data.errors, statusText: res.statusText };
     }
 
-    // Store stats data.
-    const repoNodes = res.data.data.user.repositories.nodes;
-    if (stats) {
-      stats.data.data.user.repositories.nodes.push(...repoNodes);
-    } else {
-      stats = res;
+    const user = res.data.data.user;
+    if (!userInfo) {
+      userInfo = user;
     }
 
-    hasNextPage = res.data.data.user.repositories.pageInfo.hasNextPage;
-    endCursor = res.data.data.user.repositories.pageInfo.endCursor;
+    // Collect owned repos.
+    for (const repo of user.repositories.nodes) {
+      if (!repos.has(repo.nameWithOwner)) {
+        repos.set(repo.nameWithOwner, repo);
+      }
+    }
+
+    // Collect contributed-to repos.
+    for (const repo of user.repositoriesContributedTo.nodes) {
+      if (!repos.has(repo.nameWithOwner)) {
+        repos.set(repo.nameWithOwner, repo);
+      }
+    }
+
+    hasOwnedNext = user.repositories.pageInfo.hasNextPage;
+    if (hasOwnedNext) {
+      ownedCursor = user.repositories.pageInfo.endCursor;
+    }
+
+    hasContribNext = user.repositoriesContributedTo.pageInfo.hasNextPage;
+    if (hasContribNext) {
+      contribCursor = user.repositoriesContributedTo.pageInfo.endCursor;
+    }
   }
 
-  return stats;
+  return { user: userInfo, repos };
 };
 
 /**
@@ -248,17 +256,17 @@ const fetchOverview = async (username) => {
   ]);
 
   // Catch GraphQL errors.
-  if (graphqlRes.data.errors) {
-    logger.error(graphqlRes.data.errors);
-    if (graphqlRes.data.errors[0].type === "NOT_FOUND") {
+  if (graphqlRes.errors) {
+    logger.error(graphqlRes.errors);
+    if (graphqlRes.errors[0].type === "NOT_FOUND") {
       throw new CustomError(
-        graphqlRes.data.errors[0].message || "Could not fetch user.",
+        graphqlRes.errors[0].message || "Could not fetch user.",
         CustomError.USER_NOT_FOUND,
       );
     }
-    if (graphqlRes.data.errors[0].message) {
+    if (graphqlRes.errors[0].message) {
       throw new CustomError(
-        wrapTextMultiline(graphqlRes.data.errors[0].message, 90, 1)[0],
+        wrapTextMultiline(graphqlRes.errors[0].message, 90, 1)[0],
         graphqlRes.statusText,
       );
     }
@@ -268,24 +276,20 @@ const fetchOverview = async (username) => {
     );
   }
 
-  const user = graphqlRes.data.data.user;
+  const { user, repos } = graphqlRes;
 
   overview.name = user.name || user.login;
-  overview.contributedTo = user.repositoriesContributedTo.totalCount;
+  overview.contributedTo = repos.size;
 
   // Fetch all-time contributions using contribution years from the first query.
   const years = user.contributionsCollection.contributionYears;
   overview.totalCommits = await totalContributionsFetcher(username, years);
 
-  // Sum stars and forks across all repos.
-  overview.totalStars = user.repositories.nodes.reduce(
-    (prev, curr) => prev + curr.stargazers.totalCount,
-    0,
-  );
-  overview.totalForks = user.repositories.nodes.reduce(
-    (prev, curr) => prev + curr.forkCount,
-    0,
-  );
+  // Sum stars and forks across all unique repos (owned + contributed to).
+  for (const repo of repos.values()) {
+    overview.totalStars += repo.stargazers.totalCount;
+    overview.totalForks += repo.forkCount;
+  }
 
   // Gist-cached stats.
   overview.linesChanged = gistStats.linesChanged;
