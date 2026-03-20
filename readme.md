@@ -9,6 +9,8 @@ A fork of [anuraghazra/github-readme-stats](https://github.com/anuraghazra/githu
 
 This fork uses **GraphQL for live stats cards** (served via Vercel) and **REST only where GraphQL falls short** (via a daily GitHub Action) for accurate language breakdowns across public and private repos. Streak stats are calculated directly from GitHub's contribution calendar — no external service needed.
 
+<img src="https://github-readme-stats-navy-three-39.vercel.app/api/combined/?username=compscidr&theme=dark&lang_count=10" />
+
 ## Endpoints
 
 This fork adds the following endpoints on top of the [original ones](https://github.com/anuraghazra/github-readme-stats):
