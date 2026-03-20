@@ -1,10 +1,9 @@
 // @ts-check
 
-import { Card } from "../common/Card.js";
 import { getCardColors } from "../common/color.js";
 
-const CARD_DEFAULT_WIDTH = 400;
-const RING_COLOR = "#e4a400";
+const CARD_DEFAULT_WIDTH = 330;
+const STREAK_COLOR = "#FB8C00";
 
 /**
  * Format a date range string.
@@ -14,6 +13,9 @@ const RING_COLOR = "#e4a400";
  * @returns {string} Formatted date range.
  */
 const formatDateRange = (start, end) => {
+  if (!start || !end) {
+    return "";
+  }
   const opts = { month: "short", day: "numeric", year: "numeric" };
   const s = new Date(start + "T00:00:00").toLocaleDateString("en-US", opts);
   const e = new Date(end + "T00:00:00").toLocaleDateString("en-US", opts);
@@ -21,7 +23,8 @@ const formatDateRange = (start, end) => {
 };
 
 /**
- * Renders the streak card SVG.
+ * Renders the streak card SVG, matching the DenverCoder1/github-readme-streak-stats
+ * style but with only Current Streak and Longest Streak columns.
  *
  * @param {object} stats Streak stats data.
  * @param {number} stats.currentStreak Current streak length.
@@ -51,7 +54,7 @@ const renderStreakCard = (stats, options = {}) => {
     icon_color,
     bg_color,
     theme = "default",
-    border_radius,
+    border_radius = 4.5,
     border_color,
     disable_animations = false,
   } = options;
@@ -59,19 +62,21 @@ const renderStreakCard = (stats, options = {}) => {
   const width =
     card_width && !isNaN(card_width) ? card_width : CARD_DEFAULT_WIDTH;
   const height = 195;
+  const midX = width / 2;
+  const leftCenter = width / 4;
+  const rightCenter = (width * 3) / 4;
 
-  const { titleColor, textColor, bgColor, borderColor, iconColor } =
-    getCardColors({
-      title_color,
-      text_color,
-      icon_color,
-      bg_color,
-      border_color,
-      ring_color: title_color,
-      theme,
-    });
+  const { textColor, bgColor, borderColor, iconColor } = getCardColors({
+    title_color,
+    text_color,
+    icon_color,
+    bg_color,
+    border_color,
+    ring_color: title_color,
+    theme,
+  });
 
-  const ringColor = icon_color ? iconColor : RING_COLOR;
+  const streakColor = icon_color ? iconColor : STREAK_COLOR;
 
   const currentDates =
     currentStreak > 0
@@ -82,99 +87,102 @@ const renderStreakCard = (stats, options = {}) => {
       ? formatDateRange(longestStreakStart, longestStreakEnd)
       : "";
 
-  // Fire icon SVG path.
-  const fireIcon = `<path d="M12.945 4.793a7.478 7.478 0 00-1.465-1.853C10.271 1.744 8.835.782 8.044 0c-.301.375-.588.765-.86 1.17C6.2 2.683 4.834 4.591 4.474 6.318c-.198.947-.157 1.97.09 2.906-.67-.276-1.28-.755-1.72-1.381a5.685 5.685 0 00-.443 2.223c.014.878.207 1.74.564 2.538a6.65 6.65 0 001.555 2.156c.858.818 1.885 1.382 2.97 1.706A7.37 7.37 0 009.67 17c.969-.078 1.9-.378 2.73-.838a6.04 6.04 0 001.974-1.85 5.763 5.763 0 00.924-3.072c.027-1.564-.473-3.238-1.605-4.673a.563.563 0 00-.748-1.774z" fill="${ringColor}"/>`;
+  const animFadeIn = (delay) =>
+    disable_animations
+      ? ""
+      : `style="opacity: 0; animation: fadein 0.5s linear forwards ${delay}s"`;
+  const animStreak = disable_animations
+    ? ""
+    : `style="animation: currstreak 0.6s linear forwards"`;
 
-  // Current streak section (left side with ring).
-  const currentStreakSection = `
-    <g transform="translate(${width / 4}, 30)">
-      <g transform="translate(0, -10)">
-        <svg x="-10" y="-5" width="20" height="20" viewBox="0 0 18 18">
-          ${fireIcon}
-        </svg>
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+      style="isolation: isolate" viewBox="0 0 ${width} ${height}" width="${width}px" height="${height}px" direction="ltr"
+      role="img" aria-labelledby="titleId descId">
+      <title id="titleId">Contribution Streaks</title>
+      <desc id="descId">Current streak: ${currentStreak} days, Longest streak: ${longestStreak} days</desc>
+      <style>
+        @keyframes currstreak {
+          0% { font-size: 3px; opacity: 0.2; }
+          80% { font-size: 34px; opacity: 1; }
+          100% { font-size: 28px; opacity: 1; }
+        }
+        @keyframes fadein {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        ${disable_animations ? "* { animation-duration: 0s !important; animation-delay: 0s !important; }" : ""}
+      </style>
+      <defs>
+        <clipPath id="outer_rectangle">
+          <rect width="${width}" height="${height}" rx="${border_radius}"/>
+        </clipPath>
+        <mask id="mask_out_ring_behind_fire">
+          <rect width="${width}" height="${height}" fill="white"/>
+          <ellipse id="mask-ellipse" cx="${leftCenter}" cy="32" rx="13" ry="18" fill="black"/>
+        </mask>
+      </defs>
+      <g clip-path="url(#outer_rectangle)">
+        <!-- Background -->
+        <rect stroke="${hide_border ? "none" : borderColor}" fill="${bgColor}" rx="${border_radius}" x="0.5" y="0.5" width="${width - 1}" height="${height - 1}"/>
+        <!-- Divider -->
+        <line x1="${midX}" y1="28" x2="${midX}" y2="170" vector-effect="non-scaling-stroke" stroke-width="1" stroke="${borderColor}" stroke-linejoin="miter" stroke-linecap="square" stroke-miterlimit="3"/>
+
+        <!-- Current Streak Section -->
+        <g style="isolation: isolate">
+          <!-- Current Streak label -->
+          <g transform="translate(${leftCenter}, 108)">
+            <text x="0" y="32" stroke-width="0" text-anchor="middle" fill="${streakColor}" stroke="none" font-family="'Segoe UI', Ubuntu, sans-serif" font-weight="700" font-size="14px" ${animFadeIn(0.9)}>
+              Current Streak
+            </text>
+          </g>
+          <!-- Current Streak range -->
+          <g transform="translate(${leftCenter}, 145)">
+            <text x="0" y="21" stroke-width="0" text-anchor="middle" fill="#9E9E9E" stroke="none" font-family="'Segoe UI', Ubuntu, sans-serif" font-weight="400" font-size="12px" ${animFadeIn(0.9)}>
+              ${currentDates}
+            </text>
+          </g>
+          <!-- Ring around number -->
+          <g mask="url(#mask_out_ring_behind_fire)">
+            <circle cx="${leftCenter}" cy="71" r="40" fill="none" stroke="${streakColor}" stroke-width="5" ${animFadeIn(0.4)}></circle>
+          </g>
+          <!-- Fire icon -->
+          <g transform="translate(${leftCenter}, 19.5)" stroke-opacity="0" ${animFadeIn(0.6)}>
+            <path d="M -12 -0.5 L 15 -0.5 L 15 23.5 L -12 23.5 L -12 -0.5 Z" fill="none"/>
+            <path d="M 1.5 0.67 C 1.5 0.67 2.24 3.32 2.24 5.47 C 2.24 7.53 0.89 9.2 -1.17 9.2 C -3.23 9.2 -4.79 7.53 -4.79 5.47 L -4.76 5.11 C -6.78 7.51 -8 10.62 -8 13.99 C -8 18.41 -4.42 22 0 22 C 4.42 22 8 18.41 8 13.99 C 8 8.6 5.41 3.79 1.5 0.67 Z M -0.29 19 C -2.07 19 -3.51 17.6 -3.51 15.86 C -3.51 14.24 -2.46 13.1 -0.7 12.74 C 1.07 12.38 2.9 11.53 3.92 10.16 C 4.31 11.45 4.51 12.81 4.51 14.2 C 4.51 16.85 2.36 19 -0.29 19 Z" fill="${streakColor}" stroke-opacity="0"/>
+          </g>
+          <!-- Current Streak number -->
+          <g transform="translate(${leftCenter}, 48)">
+            <text x="0" y="32" stroke-width="0" text-anchor="middle" fill="${textColor}" stroke="none" font-family="'Segoe UI', Ubuntu, sans-serif" font-weight="700" font-size="28px" ${animStreak}>
+              ${currentStreak.toLocaleString("en-US")}
+            </text>
+          </g>
+        </g>
+
+        <!-- Longest Streak Section -->
+        <g style="isolation: isolate">
+          <!-- Longest Streak number -->
+          <g transform="translate(${rightCenter}, 48)">
+            <text x="0" y="32" stroke-width="0" text-anchor="middle" fill="${textColor}" stroke="none" font-family="'Segoe UI', Ubuntu, sans-serif" font-weight="700" font-size="28px" ${animFadeIn(1.2)}>
+              ${longestStreak.toLocaleString("en-US")}
+            </text>
+          </g>
+          <!-- Longest Streak label -->
+          <g transform="translate(${rightCenter}, 84)">
+            <text x="0" y="32" stroke-width="0" text-anchor="middle" fill="${textColor}" stroke="none" font-family="'Segoe UI', Ubuntu, sans-serif" font-weight="400" font-size="14px" ${animFadeIn(1.3)}>
+              Longest Streak
+            </text>
+          </g>
+          <!-- Longest Streak range -->
+          <g transform="translate(${rightCenter}, 114)">
+            <text x="0" y="32" stroke-width="0" text-anchor="middle" fill="#9E9E9E" stroke="none" font-family="'Segoe UI', Ubuntu, sans-serif" font-weight="400" font-size="12px" ${animFadeIn(1.4)}>
+              ${longestDates}
+            </text>
+          </g>
+        </g>
       </g>
-      <circle cx="0" cy="50" r="40" stroke="${ringColor}" stroke-width="5" fill="none" opacity="0.4"/>
-      <circle cx="0" cy="50" r="40" stroke="${ringColor}" stroke-width="5" fill="none"
-        stroke-dasharray="251.33"
-        stroke-dashoffset="${currentStreak > 0 ? 0 : 251.33}"
-        stroke-linecap="round"
-        ${disable_animations ? "" : `style="animation: streakRing 1s ease-in-out forwards;"`}
-      />
-      <text x="0" y="55" text-anchor="middle" class="streak-number">${currentStreak}</text>
-      <text x="0" y="105" text-anchor="middle" class="streak-label" fill="${ringColor}">Current Streak</text>
-      <text x="0" y="122" text-anchor="middle" class="streak-dates">${currentDates}</text>
-    </g>
+    </svg>
   `;
-
-  // Longest streak section (right side).
-  const longestStreakSection = `
-    <g transform="translate(${(width * 3) / 4}, 30)">
-      <text x="0" y="55" text-anchor="middle" class="streak-number">${longestStreak}</text>
-      <text x="0" y="80" text-anchor="middle" class="streak-label">Longest Streak</text>
-      <text x="0" y="100" text-anchor="middle" class="streak-dates">${longestDates}</text>
-    </g>
-  `;
-
-  // Divider line.
-  const divider = `<line x1="${width / 2}" y1="25" x2="${width / 2}" y2="155" stroke="${textColor}" stroke-width="1" opacity="0.3"/>`;
-
-  const cssStyles = `
-    .streak-number {
-      font: 800 28px 'Segoe UI', Ubuntu, Sans-Serif;
-      fill: ${textColor};
-    }
-    .streak-label {
-      font: 600 14px 'Segoe UI', Ubuntu, Sans-Serif;
-      fill: ${textColor};
-    }
-    .streak-dates {
-      font: 400 11px 'Segoe UI', Ubuntu, Sans-Serif;
-      fill: ${titleColor};
-      opacity: 0.7;
-    }
-    ${
-      disable_animations
-        ? ""
-        : `
-    @keyframes streakRing {
-      from { stroke-dashoffset: 251.33; }
-      to { stroke-dashoffset: 0; }
-    }
-    `
-    }
-  `;
-
-  const card = new Card({
-    width,
-    height,
-    border_radius,
-    colors: {
-      titleColor,
-      textColor,
-      iconColor,
-      bgColor,
-      borderColor,
-    },
-  });
-
-  card.setHideBorder(hide_border);
-  card.setHideTitle(true);
-  card.setCSS(cssStyles);
-
-  if (disable_animations) {
-    card.disableAnimations();
-  }
-
-  card.setAccessibilityLabel({
-    title: "Contribution Streaks",
-    desc: `Current streak: ${currentStreak} days, Longest streak: ${longestStreak} days`,
-  });
-
-  return card.render(`
-    ${divider}
-    ${currentStreakSection}
-    ${longestStreakSection}
-  `);
 };
 
 export { renderStreakCard };
