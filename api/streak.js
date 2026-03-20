@@ -14,7 +14,7 @@ import {
 } from "../src/common/error.js";
 import { parseBoolean } from "../src/common/ops.js";
 import { renderError } from "../src/common/render.js";
-import { fetchOverview } from "../src/fetchers/overview.js";
+import { fetchStreak } from "../src/fetchers/streak.js";
 
 // @ts-ignore
 export default async (req, res) => {
@@ -51,7 +51,7 @@ export default async (req, res) => {
   }
 
   try {
-    const stats = await fetchOverview(username);
+    const stats = await fetchStreak(username);
     const cacheSeconds = resolveCacheSeconds({
       requested: parseInt(cache_seconds, 10),
       def: CACHE_TTL.STATS_CARD.DEFAULT,
