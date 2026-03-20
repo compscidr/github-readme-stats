@@ -143,6 +143,12 @@ const contribsFetcher = (variables, token) => {
       ) {
         contributionCalendar {
           totalContributions
+          weeks {
+            contributionDays {
+              contributionCount
+              date
+            }
+          }
         }
       }`,
     )
@@ -165,26 +171,89 @@ const contribsFetcher = (variables, token) => {
 };
 
 /**
- * Fetch all-time contributions for a given username.
+ * Calculate streak stats from a sorted array of contribution days.
+ *
+ * @param {{ date: string, contributionCount: number }[]} days Sorted contribution days.
+ * @returns {{ currentStreak: number, longestStreak: number }} Streak stats.
+ */
+const calculateStreaks = (days) => {
+  let longestStreak = 0;
+  let currentStreak = 0;
+  let streak = 0;
+
+  // Find today or the most recent date in the data.
+  const today = new Date().toISOString().split("T")[0];
+
+  for (let i = 0; i < days.length; i++) {
+    if (days[i].contributionCount > 0) {
+      streak++;
+      if (streak > longestStreak) {
+        longestStreak = streak;
+      }
+    } else {
+      streak = 0;
+    }
+  }
+
+  // Current streak: count backwards from today (or yesterday if today has no contributions yet).
+  currentStreak = 0;
+  for (let i = days.length - 1; i >= 0; i--) {
+    // Skip future dates.
+    if (days[i].date > today) {
+      continue;
+    }
+    // Allow today to have 0 contributions (day isn't over yet).
+    if (days[i].date === today && days[i].contributionCount === 0) {
+      continue;
+    }
+    if (days[i].contributionCount > 0) {
+      currentStreak++;
+    } else {
+      break;
+    }
+  }
+
+  return { currentStreak, longestStreak };
+};
+
+/**
+ * Fetch all-time contributions and streak stats for a given username.
  *
  * @param {string} username GitHub username.
  * @param {number[]} years Contribution years.
- * @returns {Promise<number>} Total contributions.
+ * @returns {Promise<{ totalContributions: number, currentStreak: number, longestStreak: number }>} Contribution and streak stats.
  */
 const totalContributionsFetcher = async (username, years) => {
   const res = await retryer(contribsFetcher, { login: username, years });
 
   if (res.data.errors) {
     logger.error(res.data.errors);
-    return 0;
+    return { totalContributions: 0, currentStreak: 0, longestStreak: 0 };
   }
 
   const user = res.data.data.user;
   let total = 0;
+  const allDays = [];
+
   for (const key of Object.keys(user)) {
-    total += user[key]?.contributionCalendar?.totalContributions || 0;
+    const calendar = user[key]?.contributionCalendar;
+    if (!calendar) {
+      continue;
+    }
+    total += calendar.totalContributions || 0;
+    for (const week of calendar.weeks || []) {
+      for (const day of week.contributionDays || []) {
+        allDays.push(day);
+      }
+    }
   }
-  return total;
+
+  // Sort days chronologically.
+  allDays.sort((a, b) => a.date.localeCompare(b.date));
+
+  const { currentStreak, longestStreak } = calculateStreaks(allDays);
+
+  return { totalContributions: total, currentStreak, longestStreak };
 };
 
 /**
@@ -224,6 +293,8 @@ const fetchGistStats = async (username) => {
  *   totalStars: number,
  *   totalForks: number,
  *   totalCommits: number,
+ *   currentStreak: number,
+ *   longestStreak: number,
  *   linesChanged: number,
  *   repoViews: number,
  *   contributedTo: number,
@@ -244,6 +315,8 @@ const fetchOverview = async (username) => {
     totalStars: 0,
     totalForks: 0,
     totalCommits: 0,
+    currentStreak: 0,
+    longestStreak: 0,
     linesChanged: 0,
     repoViews: 0,
     contributedTo: 0,
@@ -281,9 +354,12 @@ const fetchOverview = async (username) => {
   overview.name = user.name || user.login;
   overview.contributedTo = repos.size;
 
-  // Fetch all-time contributions using contribution years from the first query.
+  // Fetch all-time contributions and streaks using contribution years from the first query.
   const years = user.contributionsCollection.contributionYears;
-  overview.totalCommits = await totalContributionsFetcher(username, years);
+  const contribStats = await totalContributionsFetcher(username, years);
+  overview.totalCommits = contribStats.totalContributions;
+  overview.currentStreak = contribStats.currentStreak;
+  overview.longestStreak = contribStats.longestStreak;
 
   // Sum stars and forks across all unique repos (owned + contributed to).
   for (const repo of repos.values()) {
