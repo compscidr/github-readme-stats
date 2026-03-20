@@ -4,10 +4,10 @@ If you have 100+ repos including private ones, the existing solutions are either
 A fork of [anuraghazra/github-readme-stats](https://github.com/anuraghazra/github-readme-stats) that combines the best of three projects:
 
 - **[anuraghazra/github-readme-stats](https://github.com/anuraghazra/github-readme-stats)** — Fast GraphQL-based stats cards, but can't access private repo language data.
-- **[jstrieb/github-stats](https://github.com/jstrieb/github-stats)** — REST-based GitHub Actions that can access private repos, but takes 40+ minutes for users with 150+ repos.
+- **[jstrieb/github-stats](https://github.com/jstrieb/github-stats)** — REST-based GitHub Actions that can access private repos, but hammers the API with sequential per-repo requests, causing rate limiting and unpredictable run times.
 - **[DenverCoder1/github-readme-streak-stats](https://github.com/DenverCoder1/github-readme-streak-stats)** — Contribution streak cards via an external service.
 
-This fork uses **GraphQL for live stats cards** (served via Vercel) and **REST via a daily GitHub Action** (~17 mins for 170+ repos) for accurate language breakdowns across public and private repos. Streak stats are calculated directly from GitHub's contribution calendar — no external service needed.
+This fork uses **GraphQL for live stats cards** (served via Vercel) and **REST only where GraphQL falls short** (via a daily GitHub Action) for accurate language breakdowns across public and private repos. Streak stats are calculated directly from GitHub's contribution calendar — no external service needed.
 
 ## Endpoints
 
@@ -96,6 +96,16 @@ GitHub Action (daily)
   ├── GraphQL: stars, forks, contributions, repos
   └── Writes results to public gist
 ```
+
+## Debugging
+
+The GitHub Action logs progress per-repo during the daily run, making it easy to identify which repos are slow or hitting API errors. You can also use the debug endpoint:
+
+```
+/api/top-langs?debug=true&username=YOUR_USERNAME
+```
+
+This returns JSON with the total repo count, repos after filtering, and a per-repo language breakdown — useful for tuning your `EXCLUDE_REPO` list or figuring out why your language stats look off.
 
 ## License
 
