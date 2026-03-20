@@ -104,7 +104,7 @@ Vercel caches card responses to avoid hitting GitHub's API on every request:
 | Card | Default | Min | Max |
 |------|---------|-----|-----|
 | Stats / Overview / Streak / Combined | 24 hours | 12 hours | 48 hours |
-| Top Languages | 24 hours | 12 hours | 48 hours |
+| Top Languages | 6 days | 2 days | 10 days |
 
 You can override the default with `&cache_seconds=N` in the URL, but it will be clamped to the min/max range.
 
