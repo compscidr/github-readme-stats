@@ -6,7 +6,16 @@
 
 ## Why this fork?
 
-[anuraghazra/github-readme-stats](https://github.com/anuraghazra/github-readme-stats) uses GraphQL which is fast but can't access private repo language data. [jstrieb/github-stats](https://github.com/jstrieb/github-stats) uses REST via GitHub Actions which can access private repos but takes 40+ minutes for users with 150+ repos. This fork uses GraphQL for live stats cards and REST Actions jobs (running daily) for accurate language breakdowns across public and private repos.
+[anuraghazra/github-readme-stats](https://github.com/anuraghazra/github-readme-stats) uses GraphQL which is fast but can't access private repo language data. [jstrieb/github-stats](https://github.com/jstrieb/github-stats) uses REST via GitHub Actions which can access private repos but takes 40+ minutes for users with 150+ repos. This fork uses GraphQL for live stats cards and REST Actions jobs (running daily) for accurate language breakdowns across public and private repos. The streak card is inspired by [DenverCoder1/github-readme-streak-stats](https://github.com/DenverCoder1/github-readme-streak-stats).
+
+## Endpoints
+
+All original endpoints from [anuraghazra/github-readme-stats](https://github.com/anuraghazra/github-readme-stats) are available. This fork adds:
+
+- **`/api/overview`** — Stars, forks, all-time contributions, lines of code changed, repository views, and repositories with contributions.
+- **`/api/streak`** — Current streak and longest streak with dates, calculated from GitHub's contribution calendar.
+- **`/api/combined`** — All-in-one card combining overview stats, streaks, and top languages in a single image.
+- **`/api/top-langs?debug=true`** — Debug mode that returns JSON with repo count and per-repo language breakdown.
 
 <p align="center">
   <a href="https://github.com/anuraghazra/github-readme-stats/actions">
