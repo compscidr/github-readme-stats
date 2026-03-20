@@ -63,7 +63,7 @@ const renderStreakCard = (stats, options = {}) => {
 
   const width =
     card_width && !isNaN(card_width) ? card_width : CARD_DEFAULT_WIDTH;
-  const height = 195;
+  const height = 195 + 30; // +30 to compensate for Card.setHideTitle reducing height
   const midX = width / 2;
   const leftCenter = width / 4;
   const rightCenter = (width * 3) / 4;
