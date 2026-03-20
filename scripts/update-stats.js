@@ -27,58 +27,140 @@ const restHeaders = {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Fetch all non-fork repos the user owns or is an org member of via GraphQL,
- * paginating through all results.
- * @returns {Promise<string[]>} Array of "owner/name" strings.
+ * Run a GraphQL query against the GitHub API.
+ * @param {string} query GraphQL query string.
+ * @param {object} variables Query variables.
+ * @returns {Promise<object>} Parsed JSON response.
+ */
+async function graphql(query, variables) {
+  const res = await fetch(GRAPHQL_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `bearer ${TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`GraphQL request failed: ${res.status} ${res.statusText}`);
+  }
+
+  const json = await res.json();
+
+  if (json.errors) {
+    throw new Error(`GraphQL errors: ${JSON.stringify(json.errors)}`);
+  }
+
+  return json;
+}
+
+/**
+ * Fetch all repos (owned + contributed to) with stars/forks, plus contribution years.
+ * @returns {Promise<{ repos: Map<string, object>, name: string, contributionYears: number[] }>} Repos and user info.
  */
 async function fetchAllRepos() {
   const query = `
-    query($login: String!, $after: String) {
+    query($login: String!, $ownedAfter: String, $contribAfter: String) {
       user(login: $login) {
-        repositories(first: 100, ownerAffiliations: [OWNER, ORGANIZATION_MEMBER], isFork: false, after: $after) {
-          nodes { nameWithOwner }
+        name
+        login
+        repositories(first: 100, ownerAffiliations: [OWNER, ORGANIZATION_MEMBER], isFork: false, after: $ownedAfter) {
+          nodes {
+            nameWithOwner
+            stargazers { totalCount }
+            forkCount
+          }
           pageInfo { hasNextPage endCursor }
+        }
+        repositoriesContributedTo(first: 100, includeUserRepositories: false, contributionTypes: [COMMIT, ISSUE, PULL_REQUEST, REPOSITORY], after: $contribAfter) {
+          nodes {
+            nameWithOwner
+            stargazers { totalCount }
+            forkCount
+          }
+          pageInfo { hasNextPage endCursor }
+        }
+        contributionsCollection {
+          contributionYears
         }
       }
     }
   `;
 
-  const repos = [];
-  let after = null;
-  let hasNextPage = true;
+  const repos = new Map();
+  let name = "";
+  let contributionYears = [];
+  let ownedAfter = null;
+  let contribAfter = null;
+  let hasOwnedNext = true;
+  let hasContribNext = true;
 
-  while (hasNextPage) {
-    const res = await fetch(GRAPHQL_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `bearer ${TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query, variables: { login: USERNAME, after } }),
+  while (hasOwnedNext || hasContribNext) {
+    const json = await graphql(query, {
+      login: USERNAME,
+      ownedAfter: hasOwnedNext ? ownedAfter : null,
+      contribAfter: hasContribNext ? contribAfter : null,
     });
 
-    if (!res.ok) {
-      throw new Error(
-        `GraphQL request failed: ${res.status} ${res.statusText}`,
-      );
+    const user = json.data.user;
+    if (!name) {
+      name = user.name || user.login;
+      contributionYears = user.contributionsCollection.contributionYears;
     }
 
-    const json = await res.json();
-
-    if (json.errors) {
-      throw new Error(`GraphQL errors: ${JSON.stringify(json.errors)}`);
+    for (const repo of user.repositories.nodes) {
+      if (!repos.has(repo.nameWithOwner)) {
+        repos.set(repo.nameWithOwner, repo);
+      }
     }
 
-    const { nodes, pageInfo } = json.data.user.repositories;
-    for (const node of nodes) {
-      repos.push(node.nameWithOwner);
+    for (const repo of user.repositoriesContributedTo.nodes) {
+      if (!repos.has(repo.nameWithOwner)) {
+        repos.set(repo.nameWithOwner, repo);
+      }
     }
 
-    hasNextPage = pageInfo.hasNextPage;
-    after = pageInfo.endCursor;
+    hasOwnedNext = user.repositories.pageInfo.hasNextPage;
+    if (hasOwnedNext) {
+      ownedAfter = user.repositories.pageInfo.endCursor;
+    }
+
+    hasContribNext = user.repositoriesContributedTo.pageInfo.hasNextPage;
+    if (hasContribNext) {
+      contribAfter = user.repositoriesContributedTo.pageInfo.endCursor;
+    }
   }
 
-  return repos;
+  return { repos, name, contributionYears };
+}
+
+/**
+ * Fetch all-time contributions by querying each contribution year.
+ * @param {number[]} years Contribution years.
+ * @returns {Promise<number>} Total contributions.
+ */
+async function fetchTotalContributions(years) {
+  const yearFragments = years
+    .map(
+      (year) => `
+      year${year}: contributionsCollection(
+        from: "${year}-01-01T00:00:00Z",
+        to: "${parseInt(year, 10) + 1}-01-01T00:00:00Z"
+      ) {
+        contributionCalendar { totalContributions }
+      }`,
+    )
+    .join("\n");
+
+  const query = `query($login: String!) { user(login: $login) { ${yearFragments} } }`;
+  const json = await graphql(query, { login: USERNAME });
+
+  let total = 0;
+  for (const key of Object.keys(json.data.user)) {
+    total += json.data.user[key]?.contributionCalendar?.totalContributions || 0;
+  }
+  return total;
 }
 
 /**
@@ -178,13 +260,12 @@ async function fetchRepoViews(repo) {
 
 /**
  * Update the target gist with computed stats.
- * @param {number} linesChanged Total lines changed.
- * @param {number} repoViews Total repository views.
+ * @param {object} stats All computed stats.
  */
-async function updateGist(linesChanged, repoViews) {
+async function updateGist(stats) {
   const url = `${REST_BASE}/gists/${GIST_ID}`;
   const content = JSON.stringify(
-    { linesChanged, repoViews, updatedAt: new Date().toISOString() },
+    { ...stats, updatedAt: new Date().toISOString() },
     null,
     2,
   );
@@ -213,15 +294,32 @@ async function updateGist(linesChanged, repoViews) {
  */
 async function main() {
   console.log(`Fetching repos for ${USERNAME}...`);
-  const repos = await fetchAllRepos();
-  console.log(`Fetched ${repos.length} repos`);
+  const { repos, name, contributionYears } = await fetchAllRepos();
+  const repoList = [...repos.keys()];
+  console.log(`Fetched ${repoList.length} repos`);
 
+  // Compute overview stats from the repo data.
+  let totalStars = 0;
+  let totalForks = 0;
+  for (const repo of repos.values()) {
+    totalStars += repo.stargazers.totalCount;
+    totalForks += repo.forkCount;
+  }
+
+  console.log(`Stars: ${totalStars}, Forks: ${totalForks}`);
+
+  // Fetch all-time contributions.
+  console.log("Fetching all-time contributions...");
+  const totalCommits = await fetchTotalContributions(contributionYears);
+  console.log(`All-time contributions: ${totalCommits}`);
+
+  // Compute per-repo stats (lines changed + views).
   let totalLinesChanged = 0;
   let totalViews = 0;
 
-  for (let i = 0; i < repos.length; i++) {
-    const repo = repos[i];
-    console.log(`Processing repo ${i + 1}/${repos.length}: ${repo}`);
+  for (let i = 0; i < repoList.length; i++) {
+    const repo = repoList[i];
+    console.log(`Processing repo ${i + 1}/${repoList.length}: ${repo}`);
 
     const lines = await fetchLinesChanged(repo);
     totalLinesChanged += lines;
@@ -235,7 +333,15 @@ async function main() {
   console.log(`Lines changed: ${totalLinesChanged}`);
   console.log(`Views: ${totalViews}`);
 
-  await updateGist(totalLinesChanged, totalViews);
+  await updateGist({
+    name,
+    totalStars,
+    totalForks,
+    totalCommits,
+    contributedTo: repoList.length,
+    linesChanged: totalLinesChanged,
+    repoViews: totalViews,
+  });
   console.log("Gist updated");
 }
 

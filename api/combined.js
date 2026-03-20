@@ -13,10 +13,37 @@ import {
   retrieveSecondaryMessage,
 } from "../src/common/error.js";
 import { parseArray, parseBoolean } from "../src/common/ops.js";
+import axios from "axios";
 import { renderError } from "../src/common/render.js";
-import { fetchOverview } from "../src/fetchers/overview.js";
 import { fetchStreak } from "../src/fetchers/streak.js";
 import { fetchTopLanguages } from "../src/fetchers/top-languages.js";
+
+/**
+ * Fetch cached overview stats from the public gist.
+ *
+ * @param {string} username GitHub username (gist owner).
+ * @returns {Promise<object>} Cached overview stats.
+ */
+const fetchCachedOverview = async (username) => {
+  const gistId = process.env.GIST_ID;
+  if (!gistId) {
+    throw new Error("GIST_ID not configured");
+  }
+  const res = await axios({
+    method: "get",
+    url: `https://gist.githubusercontent.com/${username}/${gistId}/raw/github-stats.json`,
+  });
+  const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+  return {
+    name: data.name || username,
+    totalStars: data.totalStars || 0,
+    totalForks: data.totalForks || 0,
+    totalCommits: data.totalCommits || 0,
+    linesChanged: data.linesChanged || 0,
+    repoViews: data.repoViews || 0,
+    contributedTo: data.contributedTo || 0,
+  };
+};
 
 // @ts-ignore
 export default async (req, res) => {
@@ -58,8 +85,9 @@ export default async (req, res) => {
 
   try {
     // Fetch all three data sources in parallel.
+    // Overview comes from the cached gist (fast), streak and langs from GraphQL.
     const [overview, streak, langs] = await Promise.all([
-      fetchOverview(username),
+      fetchCachedOverview(username),
       fetchStreak(username),
       fetchTopLanguages(username, parseArray(exclude_repo)),
     ]);
