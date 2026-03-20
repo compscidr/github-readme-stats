@@ -4,6 +4,10 @@
   <p>Get dynamically generated GitHub stats on your READMEs!</p>
 </div>
 
+## Why this fork?
+
+[anuraghazra/github-readme-stats](https://github.com/anuraghazra/github-readme-stats) uses GraphQL which is fast but can't access private repo language data. [jstrieb/github-stats](https://github.com/jstrieb/github-stats) uses REST via GitHub Actions which can access private repos but takes 40+ minutes for users with 150+ repos. This fork uses GraphQL for live stats cards and REST Actions jobs (running daily) for accurate language breakdowns across public and private repos.
+
 <p align="center">
   <a href="https://github.com/anuraghazra/github-readme-stats/actions">
     <img alt="Tests Passing" src="https://github.com/anuraghazra/github-readme-stats/workflows/Test/badge.svg" />
