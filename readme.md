@@ -98,4 +98,4 @@ GitHub Action (daily)
 
 ## License
 
-[MIT](./LICENSE) — Originally by [Anurag Hazra](https://github.com/anuraghazra).
+[MIT](./LICENSE) — Based on work by [Anurag Hazra](https://github.com/anuraghazra), [Jacob Strieb](https://github.com/jstrieb), and [Jonah Lawrence](https://github.com/DenverCoder1).
