@@ -99,6 +99,19 @@ GitHub Action (daily)
   └── Writes results to public gist
 ```
 
+## Caching
+
+Vercel caches card responses to avoid hitting GitHub's API on every request:
+
+| Card | Default | Min | Max |
+|------|---------|-----|-----|
+| Stats / Overview / Streak / Combined | 24 hours | 12 hours | 48 hours |
+| Top Languages | 6 days | 2 days | 10 days |
+
+You can override the default with `&cache_seconds=N` in the URL, but it will be clamped to the min/max range.
+
+After the daily GitHub Action updates the gist, it can take up to 24 hours for the combined card to reflect new data due to Vercel's edge cache. Adding a cache-busting parameter (e.g. `&v=2`) will force a fresh render.
+
 ## Debugging
 
 The GitHub Action logs progress per-repo during the daily run, making it easy to identify which repos are slow or hitting API errors. You can also use the debug endpoint:
