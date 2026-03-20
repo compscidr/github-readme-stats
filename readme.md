@@ -1,4 +1,5 @@
 # GitHub Readme Stats (Fork)
+If you have 100+ repos including private ones, the existing solutions are either slow or incomplete. This fork fixes both.
 
 A fork of [anuraghazra/github-readme-stats](https://github.com/anuraghazra/github-readme-stats) that combines the best of three projects:
 
