@@ -277,9 +277,24 @@ const totalContributionsFetcher = async (username, years) => {
   // Sort days chronologically.
   allDays.sort((a, b) => a.date.localeCompare(b.date));
 
-  const { currentStreak, longestStreak } = calculateStreaks(allDays);
+  const {
+    currentStreak,
+    currentStreakStart,
+    currentStreakEnd,
+    longestStreak,
+    longestStreakStart,
+    longestStreakEnd,
+  } = calculateStreaks(allDays);
 
-  return { totalContributions: total, currentStreak, longestStreak };
+  return {
+    totalContributions: total,
+    currentStreak,
+    currentStreakStart,
+    currentStreakEnd,
+    longestStreak,
+    longestStreakStart,
+    longestStreakEnd,
+  };
 };
 
 /**
