@@ -5,7 +5,7 @@ import { getCardColors } from "../common/color.js";
 import { icons } from "../common/icons.js";
 import { clampValue } from "../common/ops.js";
 
-const CARD_DEFAULT_WIDTH = 800;
+const CARD_DEFAULT_WIDTH = 550;
 const STREAK_COLOR = "#FB8C00";
 
 /**
@@ -92,9 +92,8 @@ const renderCombinedCard = (data, options = {}) => {
 
   const width =
     card_width && !isNaN(card_width) ? card_width : CARD_DEFAULT_WIDTH;
-  const leftColWidth = width * 0.5;
-  const rightColX = leftColWidth + 10;
-  const rightColWidth = width - rightColX - 25;
+  const leftColWidth = width * 0.68;
+  const rightColX = leftColWidth + 15;
 
   // Colors.
   const { titleColor, iconColor, textColor, bgColor, borderColor } =
@@ -148,8 +147,8 @@ const renderCombinedCard = (data, options = {}) => {
   const statsHeight = statsData.length * lineHeight;
 
   // Streak section.
-  const streakSectionY = statsHeight + 10;
-  const streakHeight = 100;
+  const streakSectionY = statsHeight;
+  const streakHeight = 148;
 
   // Languages.
   const langEntries = Object.values(langs);
@@ -175,7 +174,7 @@ const renderCombinedCard = (data, options = {}) => {
           ${stat.icon}
         </svg>
         <text class="stat bold" x="25" y="12.5">${stat.label}</text>
-        <text class="stat bold" x="${leftColWidth - 40}" y="12.5" text-anchor="end">${stat.value}</text>
+        <text class="stat bold" x="${leftColWidth - 30}" y="12.5" text-anchor="end">${stat.value}</text>
       </g>
     `;
     })
@@ -194,99 +193,112 @@ const renderCombinedCard = (data, options = {}) => {
         )
       : "";
 
-  const streakCenterLeft = leftColWidth * 0.3;
-  const streakCenterRight = leftColWidth * 0.7;
-  const streakMid = leftColWidth * 0.5;
+  const streakAreaWidth = leftColWidth - 30;
+  const streakCenterLeft = streakAreaWidth * 0.25;
+  const streakCenterRight = streakAreaWidth * 0.7;
 
   const streakSection = `
     <g transform="translate(0, ${streakSectionY})">
-      <!-- Horizontal divider -->
-      <line x1="0" y1="0" x2="${leftColWidth - 20}" y2="0" stroke="${borderColor}" stroke-width="1" opacity="0.5"/>
+      <!-- Horizontal divider (removed) -->
 
+      <!-- Longest streak ring (left) -->
       <defs>
-        <mask id="mask_ring_fire">
-          <rect width="${leftColWidth}" height="${streakHeight}" fill="white"/>
-          <ellipse cx="${streakCenterLeft}" cy="17" rx="11" ry="15" fill="black"/>
+        <mask id="mask_ring_trophy">
+          <rect width="${streakAreaWidth}" height="${streakHeight}" fill="white"/>
+          <ellipse cx="${streakCenterLeft}" cy="20" rx="13" ry="18" fill="black"/>
         </mask>
       </defs>
+      <g mask="url(#mask_ring_trophy)">
+        <circle cx="${streakCenterLeft}" cy="58" r="40" fill="none" stroke="#FFD700" stroke-width="5"
+          ${disable_animations ? "" : `class="stagger" style="animation-delay: 1500ms"`}/>
+      </g>
+      <!-- Trophy icon -->
+      <g transform="translate(${streakCenterLeft}, 7)" stroke-opacity="0"
+        ${disable_animations ? "" : `class="stagger" style="animation-delay: 1650ms"`}>
+        <path d="M -12 -0.5 L 15 -0.5 L 15 23.5 L -12 23.5 L -12 -0.5 Z" fill="none"/>
+        <svg x="-10" y="0" width="20" height="20" viewBox="0 0 16 16">
+          <path fill-rule="evenodd" d="M3.217 6.962A3.75 3.75 0 010 3.25v-.5C0 1.784.784 1 1.75 1h1.356c.228-.586.8-1 1.469-1h6.85c.669 0 1.241.414 1.469 1h1.356c.966 0 1.75.784 1.75 1.75v.5a3.75 3.75 0 01-3.217 3.712 5.014 5.014 0 01-2.17 2.288l.174 1.5H12.5a.75.75 0 010 1.5h-9a.75.75 0 110-1.5h1.913l.174-1.5a5.014 5.014 0 01-2.17-2.288zM2.75 2.5h-.5a.25.25 0 00-.25.25v.5c0 1.066.748 1.958 1.748 2.18A5.013 5.013 0 012.75 2.5zm10.5.25a.25.25 0 00-.25-.25h-.5c0 1.078-.292 2.089-.802 2.956A2.251 2.251 0 0013.5 3.25v-.5zM4.5 1.5a.5.5 0 00-.5.5v.5a3.5 3.5 0 107 0V2a.5.5 0 00-.5-.5h-6z" fill="#FFD700"/>
+        </svg>
+      </g>
+      <!-- Longest streak number -->
+      <text x="${streakCenterLeft}" y="66" text-anchor="middle" class="streak-number${disable_animations ? "" : " stagger"}"
+        ${disable_animations ? "" : `style="animation-delay: 1800ms"`}>${streak.longestStreak}</text>
+      <!-- Longest streak label -->
+      <text x="${streakCenterLeft}" y="118" text-anchor="middle" class="streak-label-longest">Longest Streak</text>
+      <!-- Longest streak dates -->
+      <text x="${streakCenterLeft}" y="132" text-anchor="middle" class="streak-dates">${longestDates}</text>
 
-      <!-- Ring -->
+      <!-- Current streak ring (right) -->
+      <defs>
+        <mask id="mask_ring_fire">
+          <rect width="${streakAreaWidth}" height="${streakHeight}" fill="white"/>
+          <ellipse cx="${streakCenterRight}" cy="20" rx="13" ry="18" fill="black"/>
+        </mask>
+      </defs>
       <g mask="url(#mask_ring_fire)">
-        <circle cx="${streakCenterLeft}" cy="46" r="30" fill="none" stroke="${streakColor}" stroke-width="4"
+        <circle cx="${streakCenterRight}" cy="58" r="40" fill="none" stroke="${streakColor}" stroke-width="5"
           ${disable_animations ? "" : `class="stagger" style="animation-delay: 1500ms"`}/>
       </g>
       <!-- Fire icon -->
-      <g transform="translate(${streakCenterLeft}, 6)" stroke-opacity="0"
+      <g transform="translate(${streakCenterRight}, 7)" stroke-opacity="0"
         ${disable_animations ? "" : `class="stagger" style="animation-delay: 1650ms"`}>
         <path d="M -12 -0.5 L 15 -0.5 L 15 23.5 L -12 23.5 L -12 -0.5 Z" fill="none"/>
-        <path d="M 1.5 0.67 C 1.5 0.67 2.24 3.32 2.24 5.47 C 2.24 7.53 0.89 9.2 -1.17 9.2 C -3.23 9.2 -4.79 7.53 -4.79 5.47 L -4.76 5.11 C -6.78 7.51 -8 10.62 -8 13.99 C -8 18.41 -4.42 22 0 22 C 4.42 22 8 18.41 8 13.99 C 8 8.6 5.41 3.79 1.5 0.67 Z M -0.29 19 C -2.07 19 -3.51 17.6 -3.51 15.86 C -3.51 14.24 -2.46 13.1 -0.7 12.74 C 1.07 12.38 2.9 11.53 3.92 10.16 C 4.31 11.45 4.51 12.81 4.51 14.2 C 4.51 16.85 2.36 19 -0.29 19 Z" fill="${streakColor}" stroke-opacity="0" transform="scale(0.75)"/>
+        <path d="M 1.5 0.67 C 1.5 0.67 2.24 3.32 2.24 5.47 C 2.24 7.53 0.89 9.2 -1.17 9.2 C -3.23 9.2 -4.79 7.53 -4.79 5.47 L -4.76 5.11 C -6.78 7.51 -8 10.62 -8 13.99 C -8 18.41 -4.42 22 0 22 C 4.42 22 8 18.41 8 13.99 C 8 8.6 5.41 3.79 1.5 0.67 Z M -0.29 19 C -2.07 19 -3.51 17.6 -3.51 15.86 C -3.51 14.24 -2.46 13.1 -0.7 12.74 C 1.07 12.38 2.9 11.53 3.92 10.16 C 4.31 11.45 4.51 12.81 4.51 14.2 C 4.51 16.85 2.36 19 -0.29 19 Z" fill="${streakColor}" stroke-opacity="0"/>
       </g>
       <!-- Current streak number -->
-      <text x="${streakCenterLeft}" y="52" text-anchor="middle" class="streak-number${disable_animations ? "" : " stagger"}"
-        ${disable_animations ? "" : `style="animation-delay: 1800ms"`}>${streak.currentStreak}</text>
+      <text x="${streakCenterRight}" y="66" text-anchor="middle" class="streak-number${disable_animations ? "" : " stagger"}"
+        ${disable_animations ? "" : `style="animation-delay: 2100ms"`}>${streak.currentStreak}</text>
       <!-- Current streak label -->
-      <text x="${streakCenterLeft}" y="72" text-anchor="middle" class="streak-label-current${disable_animations ? "" : " stagger"}"
+      <text x="${streakCenterRight}" y="118" text-anchor="middle" class="streak-label-current${disable_animations ? "" : " stagger"}"
         ${disable_animations ? "" : `style="animation-delay: 1950ms"`}>Current Streak</text>
       <!-- Current streak dates -->
-      <text x="${streakCenterLeft}" y="88" text-anchor="middle" class="streak-dates">${currentDates}</text>
-
-      <!-- Vertical divider -->
-      <line x1="${streakMid}" y1="8" x2="${streakMid}" y2="90" stroke="${borderColor}" stroke-width="1" opacity="0.5"/>
-
-      <!-- Longest streak number -->
-      <text x="${streakCenterRight}" y="40" text-anchor="middle" class="streak-number${disable_animations ? "" : " stagger"}"
-        ${disable_animations ? "" : `style="animation-delay: 2100ms"`}>${streak.longestStreak}</text>
-      <!-- Longest streak label -->
-      <text x="${streakCenterRight}" y="60" text-anchor="middle" class="streak-label">Longest Streak</text>
-      <!-- Longest streak dates -->
-      <text x="${streakCenterRight}" y="78" text-anchor="middle" class="streak-dates">${longestDates}</text>
+      <text x="${streakCenterRight}" y="132" text-anchor="middle" class="streak-dates">${currentDates}</text>
     </g>
   `;
 
   // Build languages SVG.
-  const progressBarWidth = rightColWidth;
-  // Create stacked progress bar using SVG offsets.
-  let progressOffset = 0;
-  const progressSegments = topLangs
-    .map((lang) => {
-      const percent = (lang.size / totalSize) * progressBarWidth;
-      const segment = `<rect x="${progressOffset}" y="0" height="8" fill="${lang.color || "#858585"}" width="${percent}" rx="${progressOffset === 0 ? 5 : 0}" ry="${progressOffset === 0 ? 5 : 0}"/>`;
-      progressOffset += percent;
-      return segment;
-    })
-    .join("");
-
   const langItems = topLangs
     .map((lang, i) => {
       const percent = ((lang.size / totalSize) * 100).toFixed(2);
-      const y = i * 20;
+      const y = i * 25;
       const staggerDelay = (i + 3) * 150;
       return `
       <g class="stagger" style="animation-delay: ${staggerDelay}ms" transform="translate(0, ${y})">
-        <circle cx="5" cy="6" r="5" fill="${lang.color || "#858585"}"/>
-        <text x="15" y="10" class="lang-name">${lang.name} ${percent}%</text>
+        <circle cx="5" cy="8" r="5" fill="${lang.color || "#858585"}"/>
+        <text x="15" y="12.5" class="lang-name">${lang.name} ${percent}%</text>
       </g>
     `;
     })
     .join("");
 
-  const languagesSection = `
-    <g transform="translate(${rightColX}, 0)">
-      <!-- Progress bar background -->
-      <rect rx="5" ry="5" x="0" y="0" width="${progressBarWidth}" height="8" fill="#ddd" opacity="0.3"/>
-      <!-- Progress bar segments -->
-      <svg width="${progressBarWidth}">
-        ${progressSegments}
+  // Progress bar rendered at absolute position in the title area, spanning full width.
+  const fullBarWidth = width - 50;
+  let fullBarOffset = 0;
+  const fullBarSegments = topLangs
+    .map((lang) => {
+      const segWidth = (lang.size / totalSize) * fullBarWidth;
+      const segment = `<rect x="${fullBarOffset}" y="0" height="8" fill="${lang.color || "#858585"}" width="${segWidth}" rx="${fullBarOffset === 0 ? 5 : 0}" ry="${fullBarOffset === 0 ? 5 : 0}"/>`;
+      fullBarOffset += segWidth;
+      return segment;
+    })
+    .join("");
+
+  const progressBarSection = `
+    <g transform="translate(25, 44)">
+      <rect rx="5" ry="5" x="0" y="0" width="${fullBarWidth}" height="8" fill="#ddd" opacity="0.3"/>
+      <svg width="${fullBarWidth}">
+        ${fullBarSegments}
       </svg>
-      <!-- Language list -->
-      <g transform="translate(0, 20)">
-        ${langItems}
-      </g>
     </g>
   `;
 
-  // Vertical divider between columns.
-  const colDivider = `<line x1="${leftColWidth - 10}" y1="-10" x2="${leftColWidth - 10}" y2="${contentHeight}" stroke="${borderColor}" stroke-width="1" opacity="0.5"/>`;
+  const languagesSection = `
+    <g transform="translate(${rightColX}, 5)">
+      ${langItems}
+    </g>
+  `;
+
+  const colDivider = "";
 
   // CSS.
   const cssStyles = `
@@ -306,7 +318,7 @@ const renderCombinedCard = (data, options = {}) => {
       display: block;
     }
     .lang-name {
-      font: 400 11px 'Segoe UI', Ubuntu, Sans-Serif;
+      font: 600 14px 'Segoe UI', Ubuntu, Sans-Serif;
       fill: ${textColor};
     }
     .streak-number {
@@ -320,6 +332,10 @@ const renderCombinedCard = (data, options = {}) => {
     .streak-label-current {
       font: 700 12px 'Segoe UI', Ubuntu, Sans-Serif;
       fill: ${streakColor};
+    }
+    .streak-label-longest {
+      font: 700 12px 'Segoe UI', Ubuntu, Sans-Serif;
+      fill: #FFD700;
     }
     .streak-dates {
       font: 400 10px 'Segoe UI', Ubuntu, Sans-Serif;
@@ -357,10 +373,10 @@ const renderCombinedCard = (data, options = {}) => {
     desc: `Stars: ${overview.totalStars}, Forks: ${overview.totalForks}, Contributions: ${overview.totalCommits}, Current streak: ${streak.currentStreak} days, Longest streak: ${streak.longestStreak} days`,
   });
 
-  return card.render(`
+  const cardSvg = card.render(`
     <svg x="0" y="0">
       <!-- Left column: stats + streak -->
-      <g transform="translate(25, 0)">
+      <g transform="translate(25, 5)">
         ${statsItems}
         ${streakSection}
       </g>
@@ -370,6 +386,14 @@ const renderCombinedCard = (data, options = {}) => {
       ${languagesSection}
     </svg>
   `);
+
+  // Inject progress bar into the title area by inserting before the final </svg>.
+  const lastSvgClose = cardSvg.lastIndexOf("</svg>");
+  return (
+    cardSvg.slice(0, lastSvgClose) +
+    progressBarSection +
+    cardSvg.slice(lastSvgClose)
+  );
 };
 
 export { renderCombinedCard };
